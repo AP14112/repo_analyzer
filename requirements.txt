@@ -1,0 +1,89 @@
+# ==============================
+# Backend API
+# ==============================
+fastapi
+uvicorn[standard]
+python-multipart
+
+# ==============================
+# Configuration & Validation
+# ==============================
+pydantic
+pydantic-settings
+python-dotenv
+
+# ==============================
+# Database
+# ==============================
+sqlalchemy
+alembic
+psycopg[binary]
+
+# ==============================
+# Authentication
+# ==============================
+python-jose[cryptography]
+passlib[bcrypt]
+
+# ==============================
+# Repository Processing
+# ==============================
+gitpython
+pathspec
+
+# ==============================
+# Static Code Analysis
+# ==============================
+tree-sitter
+tree-sitter-language-pack
+radon
+
+# ==============================
+# Knowledge Graph
+# ==============================
+neo4j
+
+# ==============================
+# Search Engine
+# ==============================
+elasticsearch
+
+# ==============================
+# AI & Embeddings
+# ==============================
+groq
+sentence-transformers
+numpy
+
+# ==============================
+# Background Jobs
+# ==============================
+celery
+redis
+
+# ==============================
+# Frontend
+# ==============================
+streamlit
+streamlit-agraph
+requests
+
+# ==============================
+# Testing
+# ==============================
+pytest
+pytest-asyncio
+httpx
+
+# ==============================
+# Code Quality
+# ==============================
+ruff
+tree-sitter
+tree-sitter-language-pack
+
+
+sqlalchemy>=2.0
+psycopg[binary]>=3.2
+alembic>=1.16
+neo4j>=5.0

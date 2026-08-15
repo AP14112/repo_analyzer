@@ -32,33 +32,19 @@ class RepositoryService:
         "storage/repositories"
     )
 
-    def __init__(
-        self,
-        db: Session,
-    ):
-
+    def __init__(self, db: Session):
         self.db = db
-
-        self.repository_dao = RepositoryDAO(
-            db
-        )
-
-        self.file_dao = FileDAO(
-            db
-        )
-
-        self.symbol_dao = SymbolDAO(
-            db
-        )
-
-        self.relationship_dao = RelationshipDAO(
-            db
-        )
+        self.repository_dao = RepositoryDAO(db)
+        self.file_dao = FileDAO(db)
+        self.symbol_dao = SymbolDAO(db)
+        self.relationship_dao = RelationshipDAO(db)
 
         self.git_service = GitService()
+        self.repository_scanner = RepositoryScanner()
 
-        self.repository_scanner = (
-            RepositoryScanner()
+        self.neo4j = Neo4jConnection()
+        self.graph_service = Neo4jGraphService(
+            self.neo4j.driver
         )
 
     # ======================================================
@@ -415,6 +401,21 @@ class RepositoryService:
 
             print(
                 "9. Relationships inserted"
+            )
+            print(
+            "9.5. Starting Neo4j graph synchronization"
+            )
+
+            self.graph_service.sync_repository_graph(
+                repository_id=repository.id,
+                github_url=repository.github_url,
+                files=files,
+                symbols=all_symbols,
+                relationships=all_relationships,
+            )
+
+            print(
+                "9.6. Neo4j graph synchronization complete"
             )
 
             # ----------------------------------------------

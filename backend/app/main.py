@@ -3,7 +3,7 @@ import uvicorn
 from app.core.config import get_settings
 from app.modules.repository.router import router as repository_router
 from app.core.exception_handlers import register_exception_handlers
-
+from app.modules.graph.router import router as graph_router
 
 settings=get_settings()
 app = FastAPI(
@@ -15,6 +15,7 @@ app = FastAPI(
     version=settings.app_version,
 )
 app.include_router(repository_router)
+app.include_router(graph_router)
 register_exception_handlers(app)
 
 

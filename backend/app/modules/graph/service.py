@@ -1,14 +1,18 @@
 from neo4j import Driver
 
-from app.modules.symbol.model import Symbol
 from app.modules.files.model import File
 from app.modules.relationship.model import Relationship
 from app.modules.symbol.model import Symbol
+
 
 class Neo4jGraphService:
 
     def __init__(self, driver: Driver):
         self.driver = driver
+
+    # --------------------------------------------------
+    # Repository
+    # --------------------------------------------------
 
     def create_repository(
         self,
@@ -18,6 +22,7 @@ class Neo4jGraphService:
 
         query = """
         MERGE (r:Repository {id: $repository_id})
+
         SET r.github_url = $github_url
         """
 
@@ -27,6 +32,10 @@ class Neo4jGraphService:
                 repository_id=repository_id,
                 github_url=github_url,
             )
+
+    # --------------------------------------------------
+    # Files
+    # --------------------------------------------------
 
     def create_file(
         self,
@@ -40,6 +49,7 @@ class Neo4jGraphService:
         MATCH (r:Repository {id: $repository_id})
 
         MERGE (f:File {id: $file_id})
+
         SET
             f.relative_path = $relative_path,
             f.language = $language
@@ -55,6 +65,10 @@ class Neo4jGraphService:
                 relative_path=relative_path,
                 language=language,
             )
+
+    # --------------------------------------------------
+    # Symbols
+    # --------------------------------------------------
 
     def create_symbols(
         self,
@@ -87,7 +101,8 @@ class Neo4jGraphService:
             s.name = symbol.name,
             s.kind = symbol.kind,
             s.start_line = symbol.start_line,
-            s.end_line = symbol.end_line
+            s.end_line = symbol.end_line,
+            s.file_id = symbol.file_id
 
         MERGE (f)-[:CONTAINS]->(s)
         """
@@ -97,85 +112,10 @@ class Neo4jGraphService:
                 query,
                 symbols=symbol_data,
             )
-    def create_relationships(
-    self,
-    relationships: list[dict],
-    ) -> None:
 
-        if not relationships:
-            return
-
-        query = """
-        UNWIND $relationships AS rel
-
-        MATCH (source:Symbol {name: rel.source_symbol})
-        MATCH (target:Symbol {name: rel.target_symbol})
-
-        MERGE (source)-[r:CODE_RELATIONSHIP {
-            type: rel.relationship_type
-        }]->(target)
-        """
-
-        with self.driver.session() as session:
-            session.run(
-                query,
-                relationships=relationships,
-            )
-    def create_relationships(
-    self,
-    relationships: list[dict],
-    ) -> None:
-
-        if not relationships:
-            return
-
-        query = """
-        UNWIND $relationships AS rel
-
-        MATCH (source:Symbol)
-        WHERE source.name = rel.source_symbol
-        AND source.file_id = rel.file_id
-
-        MATCH (target:Symbol)
-        WHERE target.name = rel.target_symbol
-
-        MERGE (source)-[r:CODE_RELATIONSHIP]->(target)
-
-        SET r.type = rel.relationship_type
-        """
-
-        with self.driver.session() as session:
-            session.run(
-                query,
-                relationships=relationships,
-            )
-    def create_inheritance_relationships(
-        self,
-        relationships: list[dict],
-    ) -> None:
-
-        if not relationships:
-            return
-
-        query = """
-        UNWIND $relationships AS rel
-
-        MATCH (source:Symbol {
-            name: rel.source_symbol
-        })
-
-        MATCH (target:Symbol {
-            name: rel.target_symbol
-        })
-
-        MERGE (source)-[:INHERITS]->(target)
-        """
-
-        with self.driver.session() as session:
-            session.run(
-                query,
-                relationships=relationships,
-            )
+    # --------------------------------------------------
+    # IMPORTS
+    # --------------------------------------------------
 
     def create_imports(
         self,
@@ -201,10 +141,13 @@ class Neo4jGraphService:
                 relationships=relationships,
             )
 
+    # --------------------------------------------------
+    # INHERITS
+    # --------------------------------------------------
 
     def create_inheritance_relationships(
-        self,
-        relationships: list[dict],
+    self,
+    relationships: list[dict],
     ) -> None:
 
         if not relationships:
@@ -217,8 +160,14 @@ class Neo4jGraphService:
         WHERE source.name = rel.source_symbol
         AND source.file_id = rel.file_id
 
+        MATCH (source_file:File {id: source.file_id})
+        MATCH (repository:Repository)-[:CONTAINS]->(source_file)
+
         MATCH (target:Symbol)
         WHERE target.name = rel.target_symbol
+
+        MATCH (target_file:File {id: target.file_id})
+        MATCH (repository)-[:CONTAINS]->(target_file)
 
         MERGE (source)-[:INHERITS]->(target)
         """
@@ -228,6 +177,9 @@ class Neo4jGraphService:
                 query,
                 relationships=relationships,
             )
+    # --------------------------------------------------
+    # COMPLETE REPOSITORY GRAPH SYNC
+    # --------------------------------------------------
 
     def sync_repository_graph(
         self,
@@ -264,7 +216,9 @@ class Neo4jGraphService:
         # 3. Symbols
         # --------------------------------------------------
 
-        self.create_symbols(symbols)
+        self.create_symbols(
+            symbols
+        )
 
         # --------------------------------------------------
         # 4. Separate relationships
@@ -289,11 +243,23 @@ class Neo4jGraphService:
             if relationship.relationship_type == "INHERITS"
         ]
 
+        calls = [
+            {
+                "file_id": relationship.file_id,
+                "source_symbol": relationship.source_symbol,
+                "target_symbol": relationship.target_symbol,
+            }
+            for relationship in relationships
+            if relationship.relationship_type == "CALLS"
+        ]
+
         # --------------------------------------------------
         # 5. IMPORTS
         # --------------------------------------------------
 
-        self.create_imports(imports)
+        self.create_imports(
+            imports
+        )
 
         # --------------------------------------------------
         # 6. INHERITS
@@ -301,4 +267,12 @@ class Neo4jGraphService:
 
         self.create_inheritance_relationships(
             inheritance
+        )
+
+        # --------------------------------------------------
+        # 7. CALLS
+        # --------------------------------------------------
+
+        self.create_call_relationships(
+            calls
         )

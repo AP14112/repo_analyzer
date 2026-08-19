@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.database import Base
 from app.modules.repository.model import Repository
 from app.modules.files.model import File
+from app.modules.chunk.model import CodeChunk
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

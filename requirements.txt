@@ -87,3 +87,5 @@ sqlalchemy>=2.0
 psycopg[binary]>=3.2
 alembic>=1.16
 neo4j>=5.0
+sentence_tranformers>=5.0
+pgvector>=0.4

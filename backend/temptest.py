@@ -1,40 +1,94 @@
-from app.modules.repository.model import Repository
+from pathlib import Path
+
+from app.core.database import SessionLocal
+
 from app.modules.files.model import File
 from app.modules.symbol.model import Symbol
 from app.modules.relationship.model import Relationship
+from app.modules.chunk.model import CodeChunk
+from app.modules.chunk.repository import CodeChunkRepository
+from app.modules.chunk.extractor import CodeChunkExtractor
 
-from app.core.database import SessionLocal
-from app.core.neo4j import Neo4jConnection
-from app.modules.graph.service import Neo4jGraphService
-from app.modules.symbol.repository import SymbolDAO
-
+REPOSITORY_ID = 11
 
 db = SessionLocal()
+chunk_repository = CodeChunkRepository(db)
+try:
 
-neo4j = Neo4jConnection()
-neo4j.verify_connection()
+    files = (
+        db.query(File)
+        .filter(
+            File.repository_id == REPOSITORY_ID
+        )
+        .all()
+    )
 
-graph_service = Neo4jGraphService(
-    neo4j.driver
-)
+    extractor = CodeChunkExtractor()
 
-symbol_dao = SymbolDAO(db)
+    total_chunks = 0
 
-repository_id = 1
+    for file in files:
 
-symbols = symbol_dao.get_by_repository(
-    repository_id
-)
+        if file.language != "Python":
+            continue
 
-print(
-    f"Symbols found in PostgreSQL: {len(symbols)}"
-)
+        symbols = (
+            db.query(Symbol)
+            .filter(
+                Symbol.file_id == file.id
+            )
+            .all()
+        )
 
-graph_service.create_symbols(
-    symbols
-)
+        if not symbols:
+            continue
 
-print("Symbols synced to Neo4j")
+        file_path = (
+            Path("storage")
+            / "repositories"
+            / str(REPOSITORY_ID)
+            / file.relative_path
+        )
 
-neo4j.close()
-db.close()
+        if not file_path.exists():
+            print(
+                f"SKIPPING: {file.relative_path}"
+            )
+            continue
+
+        chunks = extractor.extract(
+            file=file,
+            symbols=symbols,
+            file_path=file_path,
+        )
+
+        print(
+            f"{file.relative_path}: "
+            f"{len(chunks)} chunks"
+        )
+
+        for chunk in chunks[:3]:
+            print("-" * 60)
+            print(
+                f"Symbol: {chunk.symbol_name}"
+            )
+            print(
+                f"Type: {chunk.chunk_type}"
+            )
+            print(
+                f"Lines: "
+                f"{chunk.start_line}-"
+                f"{chunk.end_line}"
+            )
+            print(chunk.content[:500])
+        chunk_repository.bulk_create(chunks)
+        total_chunks += len(chunks)
+
+    print("=" * 60)
+    print(
+        f"TOTAL GENERATED CHUNKS: "
+        f"{total_chunks}"
+    )
+
+finally:
+    db.close()

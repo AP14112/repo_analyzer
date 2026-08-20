@@ -57,3 +57,7 @@ class CodeChunk(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(384),
+        nullable=True,
+    )

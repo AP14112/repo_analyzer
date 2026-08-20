@@ -4,6 +4,8 @@ from app.core.config import get_settings
 from app.modules.repository.router import router as repository_router
 from app.core.exception_handlers import register_exception_handlers
 from app.modules.graph.router import router as graph_router
+from app.modules.embedding.router import router as embedding_router
+
 
 settings=get_settings()
 app = FastAPI(
@@ -16,6 +18,7 @@ app = FastAPI(
 )
 app.include_router(repository_router)
 app.include_router(graph_router)
+app.include_router(embedding_router)
 register_exception_handlers(app)
 
 

@@ -1,4 +1,4 @@
-from platform import node
+
 
 from neo4j import Driver
 
@@ -231,5 +231,65 @@ class GraphRepository:
                 record["child"]
                 for record in result
             ]
+            # --------------------------------------------------
+    # SYMBOL CONTEXT
+    # --------------------------------------------------
+
+    def get_symbol_context(
+        self,
+        symbol_id: int,
+    ):
+
+        query = """
+        MATCH (s:Symbol {id: $symbol_id})
+
+        OPTIONAL MATCH (caller:Symbol)-[:CALLS]->(s)
+        OPTIONAL MATCH (s)-[:CALLS]->(callee:Symbol)
+        OPTIONAL MATCH (s)-[:INHERITS]->(parent:Symbol)
+        OPTIONAL MATCH (child:Symbol)-[:INHERITS]->(s)
+
+        RETURN
+            s,
+
+            collect(DISTINCT caller) AS callers,
+            collect(DISTINCT callee) AS callees,
+            collect(DISTINCT parent) AS parents,
+            collect(DISTINCT child) AS children
+        """
+
+        with self.driver.session() as session:
+            result = session.run(
+                query,
+                symbol_id=symbol_id,
+            )
+
+            record = result.single()
+
+            if record is None:
+                return None
+
+            return {
+                "symbol": self._node_to_dict(record["s"]),
+                "callers": [
+                    self._node_to_dict(node)
+                    for node in record["callers"]
+                    if node is not None
+                ],
+                "callees": [
+                    self._node_to_dict(node)
+                    for node in record["callees"]
+                    if node is not None
+                ],
+                "parents": [
+                    self._node_to_dict(node)
+                    for node in record["parents"]
+                    if node is not None
+                ],
+                "children": [
+                    self._node_to_dict(node)
+                    for node in record["children"]
+                    if node is not None
+                ],
+            }
     def _node_to_dict(self, node):
         return dict(node)

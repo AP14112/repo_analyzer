@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.modules.chunk.model import CodeChunk
+from app.modules.files.model import File
 
 
 class EmbeddingRepository:
@@ -47,8 +48,9 @@ class EmbeddingRepository:
     def similarity_search(
     self,
     query_embedding: list[float],
+    repository_id: int,
     limit: int = 10,
-    ) -> list[tuple[CodeChunk, float]]:
+    ) -> list[dict]:
 
         distance = CodeChunk.embedding.cosine_distance(
             query_embedding
@@ -57,15 +59,35 @@ class EmbeddingRepository:
         results = (
             self.db.query(
                 CodeChunk,
+                File,
                 distance.label("distance"),
             )
-            .filter(CodeChunk.embedding.is_not(None))
+            .join(
+                File,
+                CodeChunk.file_id == File.id,
+            )
+            .filter(
+                File.repository_id == repository_id,
+                CodeChunk.embedding.is_not(None),
+            )
             .order_by(distance)
             .limit(limit)
             .all()
         )
 
         return [
-            (chunk, float(distance))
-            for chunk, distance in results
+            {
+                "chunk_id": chunk.id,
+                "file_id": file.id,
+                "file_path": file.relative_path,
+                "language": file.language,
+                "symbol_id": chunk.symbol_id,
+                "symbol_name": chunk.symbol_name,
+                "chunk_type": chunk.chunk_type,
+                "start_line": chunk.start_line,
+                "end_line": chunk.end_line,
+                "content": chunk.content,
+                "distance": float(distance),
+            }
+            for chunk, file, distance in results
         ]

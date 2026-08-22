@@ -1,14 +1,14 @@
-from app.modules.embedding.service import EmbeddingService
+from app.core.neo4j import Neo4jConnection
+from app.modules.graph.repository import GraphRepository
 
 
-service = EmbeddingService()
+db = Neo4jConnection()
 
-text = """
-def calculate_total(items):
-    return sum(items)
-"""
+repository = GraphRepository(db.driver)
 
-embedding = service.generate_embedding(text)
+result = repository.get_symbol_context(3291)
 
-print("Embedding dimensions:", len(embedding))
-print("First 5 values:", embedding[:5])
+print("\n================ GRAPH CONTEXT ================\n")
+print(result)
+
+db.driver.close()

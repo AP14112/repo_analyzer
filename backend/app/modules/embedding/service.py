@@ -6,9 +6,15 @@ from app.modules.embedding.repository import EmbeddingRepository
 
 class EmbeddingService:
 
-    def __init__(self, db: Session):
-        self.repository = EmbeddingRepository(db)
-        self.model = EmbeddingModel()
+    def __init__(
+        self,
+        repository,
+        graph_repository,
+        embedding_model,
+    ):
+        self.repository = repository
+        self.graph_repository = graph_repository
+        self.embedding_model = embedding_model
 
     def generate_embeddings(
         self,
@@ -31,7 +37,7 @@ class EmbeddingService:
                 for chunk in chunks
             ]
 
-            embeddings = self.model.generate_embeddings(
+            embeddings = self.embedding_model.generate_embeddings(
                 texts
             )
 

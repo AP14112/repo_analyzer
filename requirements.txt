@@ -90,4 +90,3 @@ neo4j>=5.0
 sentence-transformers>=2.2
 pgvector>=0.4
 groq
-

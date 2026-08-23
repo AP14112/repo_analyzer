@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.files.dao import FileDAO
 from app.modules.files.model import File
-from app.modules.git.service import GitService
+from app.modules.parser.git.service import GitService
 from app.modules.parser.factory import ParserFactory
 from app.modules.parser.relationship_extractor import (
     RelationshipExtractor,

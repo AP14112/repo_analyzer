@@ -1,14 +1,29 @@
-from app.core.neo4j import Neo4jConnection
-from app.modules.graph.repository import GraphRepository
+from app.core.database import SessionLocal
+from app.modules.reasoning.service import ReasoningService
 
 
-db = Neo4jConnection()
+db = SessionLocal()
 
-repository = GraphRepository(db.driver)
+try:
+    service = ReasoningService(db)
 
-result = repository.get_symbol_context(3291)
+    result = service.answer(
+        query="How does retry handling work?",
+        repository_id=11,  # use your actual repository ID
+        limit=5,
+    )
 
-print("\n================ GRAPH CONTEXT ================\n")
-print(result)
+    print("\n================ ANSWER ================\n")
+    print(result["answer"])
 
-db.driver.close()
+    print("\n================ SOURCES ================\n")
+
+    for source in result["sources"]:
+        print(
+            f"{source.get('file_path', 'unknown')} "
+            f"({source.get('start_line', '?')}-"
+            f"{source.get('end_line', '?')})"
+        )
+
+finally:
+    db.close()

@@ -24,7 +24,9 @@ from app.modules.repository.schema import (
 from app.modules.scanner.service import RepositoryScanner
 from app.modules.symbol.model import Symbol
 from app.modules.symbol.repository import SymbolDAO
-
+from app.modules.chunk.extractor import CodeChunkExtractor
+from app.modules.chunk.repository import CodeChunkRepository
+from app.modules.chunk.model import CodeChunk
 
 class RepositoryService:
 
@@ -38,6 +40,7 @@ class RepositoryService:
         self.file_dao = FileDAO(db)
         self.symbol_dao = SymbolDAO(db)
         self.relationship_dao = RelationshipDAO(db)
+        self.chunk_dao = CodeChunkRepository(db)
 
         self.git_service = GitService()
         self.repository_scanner = RepositoryScanner()
@@ -50,6 +53,30 @@ class RepositoryService:
     # ======================================================
     # SUBMIT REPOSITORY
     # ======================================================
+
+    def delete_repository(self, repository_id: int) -> None:
+        repository = self.repository_dao.get_by_id(repository_id)
+        if not repository:
+            raise HTTPException(status_code=404, detail="Repository not found")
+
+        # 1. Clear analysis data (Files, Symbols, Relationships, CodeChunks)
+        self._clear_analysis_data(repository_id)
+        
+        # 2. Delete from Neo4j
+        try:
+            self.graph_service.delete_repository_graph(repository_id)
+        except Exception as e:
+            print(f"Warning: Failed to delete graph data for repository {repository_id}: {e}")
+        
+        # 3. Remove filesystem directory
+        repository_path = self.STORAGE_ROOT / str(repository_id)
+        if repository_path.exists():
+            print(f"Removing repository directory: {repository_path}")
+            self.git_service._remove_directory(repository_path)
+            
+        # 4. Delete the repository record itself
+        self.repository_dao.delete(repository)
+        print(f"Repository {repository_id} successfully deleted.")
 
     def submit_repository(
         self,
@@ -295,9 +322,13 @@ class RepositoryService:
                 Relationship
             ] = []
 
+            all_chunks: list[CodeChunk] = []
+
             extractor = (
                 RelationshipExtractor()
             )
+
+            chunk_extractor = CodeChunkExtractor()
 
             for file in files:
 
@@ -402,6 +433,32 @@ class RepositoryService:
             print(
                 "9. Relationships inserted"
             )
+
+            # ----------------------------------------------
+            # 6.5 Chunks
+            # ----------------------------------------------
+            
+            print("9.1 Extracting chunks with valid symbol IDs")
+            for file in files:
+                file_path = self.STORAGE_ROOT / str(repository.id) / file.relative_path
+                file_symbols = [s for s in all_symbols if s.file_id == file.id]
+                chunks = chunk_extractor.extract(
+                    file=file,
+                    symbols=file_symbols,
+                    file_path=file_path,
+                )
+                all_chunks.extend(chunks)
+
+            print(f"9.2 Total chunks: {len(all_chunks)}")
+            self.chunk_dao.bulk_create(all_chunks)
+            print("9.3 Chunks inserted")
+
+            print("9.4. Generating embeddings")
+            from app.modules.embedding.service import EmbeddingService
+            embedding_service = EmbeddingService(self.db)
+            embedded_count = embedding_service.generate_embeddings()
+            print(f"9.4. Generated {embedded_count} embeddings")
+
             print(
             "9.5. Starting Neo4j graph synchronization"
             )
@@ -527,6 +584,16 @@ class RepositoryService:
                 Symbol
             ).filter(
                 Symbol.file_id.in_(
+                    file_ids
+                )
+            ).delete(
+                synchronize_session=False
+            )
+
+            self.db.query(
+                CodeChunk
+            ).filter(
+                CodeChunk.file_id.in_(
                     file_ids
                 )
             ).delete(

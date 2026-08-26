@@ -2,12 +2,20 @@ from sentence_transformers import SentenceTransformer
 
 
 class EmbeddingModel:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+        return cls._instance
 
     def __init__(
         self,
         model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
     ):
-        self.model = SentenceTransformer(model_name)
+        # Initialization happens in __new__
+        pass
 
     def generate_embeddings(
         self,

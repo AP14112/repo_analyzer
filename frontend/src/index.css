@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 255 255 255;
+    --surface: 246 248 250;
+    --surface-hover: 234 238 242;
+    --border: 208 215 222;
+    --accent: 9 105 218;
+    --accent-hover: 31 130 206;
+    --muted: 101 109 118;
+    --danger: 207 34 46;
+    --success: 45 164 78;
+    --warning: 154 103 0;
+    --text-main: 31 35 40;
+  }
+
+  .dark {
+    --background: 13 17 23;
+    --surface: 22 27 34;
+    --surface-hover: 33 38 45;
+    --border: 48 54 61;
+    --accent: 88 166 255;
+    --accent-hover: 49 130 206;
+    --muted: 139 148 158;
+    --danger: 248 81 73;
+    --success: 63 185 80;
+    --warning: 210 153 34;
+    --text-main: 201 209 217;
+  }
+
+  body {
+    @apply bg-background text-text antialiased font-sans m-0 p-0 overflow-hidden;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 px-3 py-1.5 bg-surface-hover hover:bg-border text-text text-sm font-medium rounded-md border border-border transition-colors disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply flex items-center justify-center gap-2 px-3 py-1.5 bg-danger/10 hover:bg-danger/20 text-danger text-sm font-medium rounded-md border border-danger/20 transition-colors disabled:opacity-50;
+  }
+  .card {
+    @apply bg-surface border border-border rounded-lg overflow-hidden;
+  }
+  .input-field {
+    @apply w-full bg-surface-hover border border-border rounded-md px-3 py-2 text-sm text-text focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all placeholder-muted;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-md;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted;
+}

@@ -8,4 +8,5 @@ from app.modules.repository.service import RepositoryService
 def get_repository_service(
     db: Session = Depends(get_db),
 ) -> RepositoryService:
+    print("!!! INSIDE get_repository_service !!!")
     return RepositoryService(db)

@@ -6,6 +6,7 @@ from app.core.config import get_settings
 class Neo4jConnection:
 
     def __init__(self):
+        print("!!! INSIDE Neo4jConnection.__init__ !!!")
         settings = get_settings()
 
         self.driver = GraphDatabase.driver(

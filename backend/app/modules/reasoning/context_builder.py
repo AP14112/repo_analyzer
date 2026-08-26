@@ -6,16 +6,24 @@ class ContextBuilder:
     ) -> str:
 
         sections = []
+        current_len = 0
+        MAX_CHARS = 20000
 
         for result in search_results:
 
-            graph = result.get("graph_context", {})
-            symbol = graph.get("symbol", {})
+            graph = result.get("graph_context") or {}
+            symbol = graph.get("symbol") or {}
 
             callers = graph.get("callers", [])
             callees = graph.get("callees", [])
             parents = graph.get("parents", [])
             children = graph.get("children", [])
+
+            # Enforce line limits on chunk content
+            content = result.get("content", "")
+            lines = content.splitlines()
+            if len(lines) > 80:
+                content = "\n".join(lines[:80]) + f"\n... [Truncated {len(lines) - 80} more lines]"
 
             section = f"""
 FILE: {result.get("file_path", "Unknown")}
@@ -27,7 +35,7 @@ SYMBOL:
 - Lines: {result.get("start_line")} - {result.get("end_line")}
 
 CODE:
-{result.get("content", "")}
+{content}
 
 GRAPH CONTEXT:
 - Callers: {self._format_nodes(callers)}
@@ -35,8 +43,13 @@ GRAPH CONTEXT:
 - Parent classes: {self._format_nodes(parents)}
 - Child classes: {self._format_nodes(children)}
 """
-
-            sections.append(section.strip())
+            section = section.strip()
+            
+            if current_len + len(section) > MAX_CHARS:
+                break
+                
+            sections.append(section)
+            current_len += len(section)
 
         return "\n\n---\n\n".join(sections)
 

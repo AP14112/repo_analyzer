@@ -175,3 +175,37 @@ def get_child_classes(
             for symbol in children
         ],
     }
+@router.get("/symbols/{symbol_id}/impact")
+def get_symbol_impact(
+    symbol_id: int,
+    graph_repository: GraphRepository = Depends(get_graph_repository),
+):
+    impact = graph_repository.get_impact_analysis(symbol_id)
+    if not impact:
+        raise HTTPException(status_code=404, detail="Symbol not found")
+    return impact
+
+@router.get("/symbols/{symbol_id}/context")
+def get_symbol_context(
+    symbol_id: int,
+    graph_repository: GraphRepository = Depends(get_graph_repository),
+):
+    context = graph_repository.get_symbol_context(symbol_id)
+    if not context:
+        raise HTTPException(status_code=404, detail="Symbol not found")
+    return context
+
+@router.get("/repositories/{repository_id}/edges")
+def get_graph_edges(
+    repository_id: int,
+    graph_repository: GraphRepository = Depends(get_graph_repository),
+):
+    edges = graph_repository.get_graph_edges(repository_id)
+    return {"edges": edges}
+
+@router.get("/debug/imports")
+def debug_imports(graph_repository: GraphRepository = Depends(get_graph_repository)):
+    with graph_repository.driver.session() as session:
+        result = session.run("MATCH (f:File)-[r:IMPORTS]->(m) RETURN count(r) AS c")
+        c = result.single()["c"]
+        return {"imports_count": c}

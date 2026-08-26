@@ -22,6 +22,8 @@ app = FastAPI(
     ),
     version=settings.app_version,
 )
+
+
 app.include_router(repository_router)
 app.include_router(graph_router)
 app.include_router(embedding_router)
@@ -53,6 +55,19 @@ async def health_check():
     return {
         "status": "healthy",
     }
+
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from app.core.database import get_db
+from app.modules.repository.service import RepositoryService
+@app.delete("/test_delete/{repo_id}")
+def test_delete(repo_id: int, db: Session = Depends(get_db)):
+    service = RepositoryService(db)
+    service.delete_repository(repo_id)
+    return {"status": "ok"}
+    service = RepositoryService(db)
+    service.delete_repository(repo_id)
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True)

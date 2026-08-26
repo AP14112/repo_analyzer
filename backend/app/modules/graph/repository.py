@@ -227,11 +227,55 @@ class GraphRepository:
                 symbol_id=symbol_id,
             )
 
-            return [
-                record["child"]
-                for record in result
-            ]
-            # --------------------------------------------------
+
+
+    # --------------------------------------------------
+    # IMPACT ANALYSIS
+    # --------------------------------------------------
+
+    def get_impact_analysis(
+        self,
+        symbol_id: int,
+    ):
+        query = """
+        MATCH (s:Symbol {id: $symbol_id})
+        OPTIONAL MATCH (direct_caller:Symbol)-[:CALLS]->(s)
+        OPTIONAL MATCH (transitive_caller:Symbol)-[:CALLS*2..3]->(s)
+        OPTIONAL MATCH (s)-[:CALLS]->(callee:Symbol)
+        OPTIONAL MATCH (s)-[:INHERITS]->(parent:Symbol)
+        OPTIONAL MATCH (child:Symbol)-[:INHERITS]->(s)
+        OPTIONAL MATCH (f:File)-[:CONTAINS]->(s)
+        RETURN
+            s,
+            f,
+            collect(DISTINCT direct_caller) AS direct_callers,
+            collect(DISTINCT transitive_caller) AS transitive_callers,
+            collect(DISTINCT callee) AS callees,
+            collect(DISTINCT parent) AS parents,
+            collect(DISTINCT child) AS children
+        """
+
+        with self.driver.session() as session:
+            result = session.run(
+                query,
+                symbol_id=symbol_id,
+            )
+            record = result.single()
+
+            if record is None:
+                return None
+
+            return {
+                "symbol": self._node_to_dict(record["s"]) if record["s"] else None,
+                "file": self._node_to_dict(record["f"]) if record["f"] else None,
+                "direct_callers": [self._node_to_dict(n) for n in record["direct_callers"] if n],
+                "transitive_callers": [self._node_to_dict(n) for n in record["transitive_callers"] if n],
+                "callees": [self._node_to_dict(n) for n in record["callees"] if n],
+                "parents": [self._node_to_dict(n) for n in record["parents"] if n],
+                "children": [self._node_to_dict(n) for n in record["children"] if n],
+            }
+
+    # --------------------------------------------------
     # SYMBOL CONTEXT
     # --------------------------------------------------
 
@@ -239,7 +283,6 @@ class GraphRepository:
         self,
         symbol_id: int,
     ):
-
         query = """
         MATCH (s:Symbol {id: $symbol_id})
 
@@ -293,3 +336,42 @@ class GraphRepository:
             }
     def _node_to_dict(self, node):
         return dict(node)
+    # --------------------------------------------------
+    # EDGES
+    # --------------------------------------------------
+
+    def get_graph_edges(self, repository_id: int):
+        edges = []
+        with self.driver.session() as session:
+            # Symbol->Symbol edges (CALLS, INHERITS)
+            symbol_query = """
+            MATCH (r:Repository {id: $repository_id})-[:CONTAINS]->(f:File)-[:CONTAINS]->(source:Symbol)
+            MATCH (source)-[rel:CALLS|INHERITS]->(target:Symbol)<-[:CONTAINS]-(:File)<-[:CONTAINS]-(r)
+            RETURN source.id AS source_id, source.name AS source_name, type(rel) AS type, target.id AS target_id, target.name AS target_name
+            """
+            result1 = session.run(symbol_query, repository_id=repository_id)
+            for record in result1:
+                edges.append({
+                    "source": record["source_id"],
+                    "source_name": record["source_name"],
+                    "target": record["target_id"],
+                    "target_name": record["target_name"],
+                    "type": record["type"]
+                })
+                
+            # File->Module edges (IMPORTS)
+            import_query = """
+            MATCH (r:Repository {id: $repository_id})-[:CONTAINS]->(f:File)
+            MATCH (f)-[rel:IMPORTS]->(target:Module)
+            RETURN f.id AS source_id, f.relative_path AS source_name, type(rel) AS type, target.name AS target_id, target.name AS target_name
+            """
+            result2 = session.run(import_query, repository_id=repository_id)
+            for record in result2:
+                edges.append({
+                    "source": record["source_id"],
+                    "source_name": record["source_name"],
+                    "target": record["target_id"],
+                    "target_name": record["target_name"],
+                    "type": record["type"]
+                })
+        return edges

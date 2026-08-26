@@ -8,13 +8,10 @@ class EmbeddingService:
 
     def __init__(
         self,
-        repository,
-        graph_repository,
-        embedding_model,
+        db: Session,
     ):
-        self.repository = repository
-        self.graph_repository = graph_repository
-        self.embedding_model = embedding_model
+        self.repository = EmbeddingRepository(db)
+        self.embedding_model = EmbeddingModel()
 
     def generate_embeddings(
         self,

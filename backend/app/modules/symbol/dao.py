@@ -14,8 +14,10 @@ class SymbolDAO:
         symbols: list[Symbol],
     ) -> None:
 
+        # Do not commit mid-pipeline: commit expires these objects and graph
+        # synchronization would otherwise lazy-load every individual symbol.
         self.db.add_all(symbols)
-        self.db.commit()
+        self.db.flush()
 
     def get_by_repository(
         self,

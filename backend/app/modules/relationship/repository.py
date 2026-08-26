@@ -18,7 +18,8 @@ class RelationshipDAO:
         relationships: list[Relationship],
     ) -> None:
         if relationships:
-            self.db.bulk_save_objects(relationships)
+            self.db.add_all(relationships)
+            self.db.flush()
     def get_by_file_repository(
         self,
         repository_id: int,

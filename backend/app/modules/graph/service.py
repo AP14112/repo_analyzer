@@ -155,20 +155,8 @@ class Neo4jGraphService:
 
         query = """
         UNWIND $relationships AS rel
-
-        MATCH (source:Symbol)
-        WHERE source.name = rel.source_symbol
-        AND source.file_id = rel.file_id
-
-        MATCH (source_file:File {id: source.file_id})
-        MATCH (repository:Repository)-[:CONTAINS]->(source_file)
-
-        MATCH (target:Symbol)
-        WHERE target.name = rel.target_symbol
-
-        MATCH (target_file:File {id: target.file_id})
-        MATCH (repository)-[:CONTAINS]->(target_file)
-
+        MATCH (source:Symbol {id: rel.source_id})
+        MATCH (target:Symbol {id: rel.target_id})
         MERGE (source)-[:INHERITS]->(target)
         """
 
@@ -180,6 +168,42 @@ class Neo4jGraphService:
     # --------------------------------------------------
     # COMPLETE REPOSITORY GRAPH SYNC
     # --------------------------------------------------
+        # --------------------------------------------------
+    # CALLS
+    # --------------------------------------------------
+
+    def create_call_relationships(
+        self,
+        relationships: list[dict],
+    ) -> None:
+
+        if not relationships:
+            return
+
+        query = """
+        UNWIND $relationships AS rel
+        MATCH (source:Symbol {id: rel.source_id})
+        MATCH (target:Symbol {id: rel.target_id})
+        MERGE (source)-[:CALLS]->(target)
+        """
+
+        with self.driver.session() as session:
+            session.run(
+                query,
+                relationships=relationships,
+            )
+
+    def delete_repository_graph(self, repository_id: int) -> None:
+        """Delete only nodes owned by one repository."""
+        query = """
+        MATCH (r:Repository {id: $repository_id})-[:CONTAINS]->(f:File)
+        OPTIONAL MATCH (f)-[:CONTAINS]->(s:Symbol)
+        WITH r, collect(DISTINCT f) + collect(DISTINCT s) AS nodes
+        FOREACH (node IN nodes | DETACH DELETE node)
+        DETACH DELETE r
+        """
+        with self.driver.session() as session:
+            session.run(query, repository_id=repository_id).consume()
 
     def sync_repository_graph(
         self,
@@ -233,25 +257,31 @@ class Neo4jGraphService:
             if relationship.relationship_type == "IMPORTS"
         ]
 
-        inheritance = [
-            {
-                "file_id": relationship.file_id,
-                "source_symbol": relationship.source_symbol,
-                "target_symbol": relationship.target_symbol,
-            }
-            for relationship in relationships
-            if relationship.relationship_type == "INHERITS"
-        ]
+        # The relational model stores names rather than target IDs.  Resolve a
+        # name only in its file, or when it is unique in this repository; never
+        # turn an ambiguous name in another file into a graph edge.
+        by_file_and_name: dict[tuple[int, str], list[int]] = {}
+        by_name: dict[str, list[int]] = {}
+        for symbol in symbols:
+            by_file_and_name.setdefault((symbol.file_id, symbol.name), []).append(symbol.id)
+            by_name.setdefault(symbol.name, []).append(symbol.id)
 
-        calls = [
-            {
-                "file_id": relationship.file_id,
-                "source_symbol": relationship.source_symbol,
-                "target_symbol": relationship.target_symbol,
-            }
-            for relationship in relationships
-            if relationship.relationship_type == "CALLS"
-        ]
+        def resolve(kind: str) -> list[dict]:
+            edges: list[dict] = []
+            for relationship in relationships:
+                if relationship.relationship_type != kind:
+                    continue
+                sources = by_file_and_name.get((relationship.file_id, relationship.source_symbol), [])
+                targets = by_file_and_name.get((relationship.file_id, relationship.target_symbol), [])
+                if not targets:
+                    candidates = by_name.get(relationship.target_symbol, [])
+                    targets = candidates if len(candidates) == 1 else []
+                if len(sources) == 1 and len(targets) == 1:
+                    edges.append({"source_id": sources[0], "target_id": targets[0]})
+            return edges
+
+        inheritance = resolve("INHERITS")
+        calls = resolve("CALLS")
 
         # --------------------------------------------------
         # 5. IMPORTS

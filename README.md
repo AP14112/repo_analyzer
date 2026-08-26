@@ -401,8 +401,6 @@ as easy to answer as:
 
 **Aryaman Prasad**
 
-B.Tech — Electronics and Communication Engineering  
-Birla Institute of Technology Mesra
 
 GitHub: https://github.com/AP14112
 

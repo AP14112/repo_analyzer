@@ -379,20 +379,6 @@ Impact Analysis
 - [x] Interactive React frontend
 - [x] Light / dark theme
 
-### Next
-
-- [ ] Multi-language parsing
-- [ ] JavaScript / TypeScript support
-- [ ] Java support
-- [ ] C / C++ support
-- [ ] Go support
-- [ ] Hierarchical code chunking
-- [ ] Background repository ingestion
-- [ ] Production deployment
-- [ ] Authentication and access control
-- [ ] Production observability
-- [ ] Performance optimization
-
 ---
 
 ## Vision
